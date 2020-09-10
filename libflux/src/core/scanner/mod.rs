@@ -175,8 +175,23 @@ impl Scanner {
             match nc {
                 Some(nc) => {
                     let size = nc.len_utf8();
+
+                    // A map of problematic, "greedy" characters
+                    // and the number of following characters they absorb
+                    let greedy_chars: HashMap<char, usize> = [
+                        // New greedy characters should be added to this list
+                        ('“', 1),
+                        ('”', 1),
+                    ]
+                    .iter()
+                    .cloned()
+                    .collect();
+                    let greed_offset = match greedy_chars.get(&nc) {
+                        Some(&ofs) => ofs,
+                        None => 0,
+                    };
                     // Advance the data pointer to after the character we just emitted.
-                    self.p = unsafe { self.p.add(size) };
+                    self.p = unsafe { self.p.add(size - greed_offset) };
                     Token {
                         tok: TOK_ILLEGAL,
                         lit: nc.to_string(),

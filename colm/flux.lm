@@ -20,7 +20,7 @@ lex
 	ignore / [ \t\n\r]+ /
 
 	# Documented, but not in the scanner.
-	literal `with `type `any `... `->
+	literal `type `any `... `->
 	literal `; `'
 
 	rl decimal_lit
@@ -36,14 +36,15 @@ lex
 
 	rl escaped_char
 		/ "\\" ( "n" | "r" | "t" | "\\" | '"' | "${" ) /
+
 	rl unicode_value
 		/ ( any - [\\$] ) | escaped_char /
+
 	rl byte_value
 		/ "\\x" xdigit{2} /
+
 	rl dollar_value
 		/ "$" ( any - "{" ) /
-	rl string_lit_char
-		/ ( unicode_value | byte_value | dollar_value ) /
 
 	token identifier
 		/ ( alpha | "_" ) ( alnum | "_" )* /
@@ -60,9 +61,29 @@ lex
 	token date_time_lit
 		/ date ( "T" time )? /
 
-	token string_lit
-		/ '"' string_lit_char* "$"? :> '"' /
+	token string_lit_open
+		/ '"' /
 end
+
+lex
+	token string_lit_char
+		/ ( unicode_value | byte_value | dollar_value ) - '"' /
+
+	literal `${
+
+	token string_lit_close /'"'/
+end
+
+def interpolation
+	[`${ expression `}]
+
+def string_lit_item
+	[string_lit_char]
+|	[interpolation]
+
+def string_lit
+	[string_lit_open string_lit_item* string_lit_close]
+	
 
 lex
 	rl regex_escaped_char / "\\" ( "/" | "\\") /
@@ -111,8 +132,14 @@ def object_body
 	[with_properties]
 |	[property_list]
 
+def with_id
+	[Id: identifier] {
+		if lhs.Id.data != "with"
+			reject
+	}
+
 def with_properties
-	[identifier `with property_list]
+	[identifier with_id property_list]
 
 def comma_property
 	[`, property]
